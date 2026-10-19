@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { Box, CircleHelp, Sparkles, Tag } from "lucide-react";
+import { Box, CircleHelp, LayoutDashboard, Sparkles, Tag } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Show, SignInButton, UserButton, useAuth } from "@clerk/nextjs";
 
 const navLinks = [
     { href: "#product", label: "Product", icon: Box },
@@ -8,8 +10,10 @@ const navLinks = [
 ];
 
 const SiteHeader = () => {
-    const isSignedIn = false;
-    const isLandingPage = true;
+    const pathName = usePathname();
+
+    const {isSignedIn} = useAuth();
+    const isLandingPage = pathName === '/';
 
     return (
         <header className="sticky top-0 z-50 px-4 pt-4 sm:px-8 sm:pt-5">
@@ -39,21 +43,30 @@ const SiteHeader = () => {
                     </nav>
                 )}
 
-                {isSignedIn ? (
-                    <button
-                        type="button"
-                        className="flex size-8 items-center justify-center rounded-full bg-white/10 text-[11px] font-medium text-neutral-200 transition-colors hover:bg-white/15"
-                    >
-                        JJ
-                    </button>
-                ) : (
-                    <Link
-                        href="/sign-in"
-                        className="rounded-full bg-white/10 px-4 py-1.5 text-sm text-neutral-200 transition-colors hover:bg-white/15"
-                    >
-                        Sign in
-                    </Link>
-                )}
+                <Show
+                    when="signed-in"
+                    fallback={
+                        <SignInButton mode="modal">
+                            <button
+                                type="button"
+                                className="rounded-full bg-white/10 px-4 py-1.5 text-sm text-neutral-200 transition-colors hover:bg-white/15"
+                            >
+                                Sign in
+                            </button>
+                        </SignInButton>
+                    }
+                >
+                    <div className="flex items-center gap-3">
+                        <Link
+                            href="/dashboard"
+                            aria-label="Dashboard"
+                            className="flex size-8 items-center justify-center rounded-full bg-white/10 text-neutral-200 transition-colors hover:bg-white/15 hover:text-white"
+                        >
+                            <LayoutDashboard className="size-4" />
+                        </Link>
+                        <UserButton />
+                    </div>
+                </Show>
             </div>
         </header>
     )
