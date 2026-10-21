@@ -9,3 +9,108 @@ datasource db {
   provider = "postgresql"
 }
 
+// Keep your existing `generator` and `datasource` blocks above these models.
+
+// ---------- Enums ----------
+
+enum WorkspaceStatus {
+  PLANNING
+  IN_DEVELOPMENT
+  IN_REVIEW
+  DONE
+}
+
+enum PromptStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+// ---------- User ----------
+// A copy of the Clerk user. clerkId is the real identity.
+// email is a plain copy (not unique): Clerk owns it.
+
+model User {
+  id        String   @id @default(cuid())
+  clerkId   String   @unique
+  email     String?
+  name      String?
+  imageUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdWorkspaces Workspace[]
+  agentPrompts      AgentPrompt[]
+}
+
+// ---------- Workspace ----------
+// clerkOrgId empty = personal workspace (only the creator can see it).
+// creatorId is set to empty when the creator is deleted, so team
+// workspaces survive. Personal ones are deleted by the user.deleted webhook.
+
+model Workspace {
+  id          String          @id @default(cuid())
+  name        String
+  description String?
+  clerkOrgId  String?
+  creatorId   String?
+  creator     User?           @relation(fields: [creatorId], references: [id], onDelete: SetNull)
+  status      WorkspaceStatus @default(PLANNING)
+  position    Float
+  shareToken  String?         @unique
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  doc          Doc?
+  canvas       Canvas?
+  agentPrompts AgentPrompt[]
+
+  @@index([clerkOrgId])
+  @@index([creatorId])
+}
+
+// ---------- Doc ----------
+// One per workspace. yjsState is the truth; content is a JSON copy
+// built from it, always written in the same update.
+
+model Doc {
+  id          String    @id @default(cuid())
+  workspaceId String    @unique
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  yjsState    Bytes?
+  content     Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// ---------- Canvas ----------
+// One per workspace. Single copy (tldraw JSON), one editor at a time.
+// Later: move pasted images to file storage, keep only URLs in content.
+
+model Canvas {
+  id          String    @id @default(cuid())
+  workspaceId String    @unique
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  content     Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// ---------- AgentPrompt ----------
+// Deleted if either its workspace or its creator is deleted.
+
+model AgentPrompt {
+  id          String       @id @default(cuid())
+  workspaceId String
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creatorId   String
+  creator     User         @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  prompt      String
+  response    String?
+  status      PromptStatus @default(PENDING)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([workspaceId, createdAt])
+  @@index([creatorId, createdAt])
+}
